@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard IoT ESP32</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #f4f6f9;
+            text-align: center;
+        }
+
+        h2 {
+            margin-top: 20px;
+        }
+
+        .container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin: 15px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+            width: 40%;
+        }
+
+        .big-text {
+            font-size: 30px;
+            font-weight: bold;
+        }
+
+        .stats {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>📊 Monitoring IoT ESP32</h2>
+
+<div class="stats">
+    <p>🌡 Suhu: <span id="suhuNow">-</span> °C</p>
+    <p>💧 Kelembapan: <span id="humNow">-</span> %</p>
+    <p>📥 Jumlah Data: <span id="totalData">-</span></p>
+</div>
+
+<div class="container">
+    <div class="card">
+        <h3>Grafik Suhu</h3>
+        <canvas id="chartSuhu"></canvas>
+    </div>
+
+    <div class="card">
+        <h3>Grafik Kelembapan</h3>
+        <canvas id="chartHum"></canvas>
+    </div>
+</div>
+
+<script>
+const channelID = "3327605"; // GANTI kalau beda
+const readAPIKey = "PB2E1DN100LIN5HI"; // GANTI
+
+const url = `https://api.thingspeak.com/channels/${channelID}/feeds.json?api_key=${readAPIKey}&results=20`;
+
+let chartSuhu, chartHum;
+
+async function getData() {
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const labels = [];
+    const suhu = [];
+    const hum = [];
+
+    data.feeds.forEach(f => {
+        labels.push(new Date(f.created_at).toLocaleTimeString());
+        suhu.push(parseFloat(f.field1));
+        hum.push(parseFloat(f.field2));
+    });
+
+    // tampilkan data realtime
+    document.getElementById("suhuNow").innerText = suhu[suhu.length - 1];
+    document.getElementById("humNow").innerText = hum[hum.length - 1];
+
+    // jumlah data
+    document.getElementById("totalData").innerText = data.channel.last_entry_id;
+
+    return { labels, suhu, hum };
+}
+
+// Grafik Suhu
+async function createCharts() {
+    const data = await getData();
+
+    chartSuhu = new Chart(document.getElementById("chartSuhu"), {
+        type: "line",
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: "Suhu (°C)",
+                data: data.suhu,
+                borderWidth: 2
+            }]
+        }
+    });
+
+    // Grafik Kelembapan
+    chartHum = new Chart(document.getElementById("chartHum"), {
+        type: "line",
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: "Kelembapan (%)",
+                data: data.hum,
+                borderWidth: 2
+            }]
+        }
+    });
+}
+
+// Update data
+async function updateCharts() {
+    const data = await getData();
+
+    chartSuhu.data.labels = data.labels;
+    chartSuhu.data.datasets[0].data = data.suhu;
+    chartSuhu.update();
+
+    chartHum.data.labels = data.labels;
+    chartHum.data.datasets[0].data = data.hum;
+    chartHum.update();
+}
+
+createCharts();
+
+// refresh tiap 20 detik
+setInterval(updateCharts, 20000);
+</script>
+
+</body>
+</html>
